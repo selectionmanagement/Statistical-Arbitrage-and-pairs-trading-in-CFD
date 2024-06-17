@@ -1,0 +1,55 @@
+//+------------------------------------------------------------------+
+//|                                                     Spread.mq4   |
+//|                        Copyright 2024, MetaQuotes Software Corp. |
+//|                                       https://www.metaquotes.net |
+//+------------------------------------------------------------------+
+#property indicator_separate_window
+#property indicator_buffers 1
+#property indicator_color1 Blue
+
+//--- input parameters
+input string SpreadSymbol1 = "UKOUSD"; // First symbol
+input string SpreadSymbol2 = "USOUSD"; // Second symbol
+
+//--- indicator buffers
+double SpreadBuffer[];
+
+//+------------------------------------------------------------------+
+//| Custom indicator initialization function                         |
+//+------------------------------------------------------------------+
+int OnInit()
+  {
+   SetIndexBuffer(0, SpreadBuffer);
+   SetIndexStyle(0, DRAW_LINE);
+   SetIndexLabel(0, "Spread");
+
+   return(INIT_SUCCEEDED);
+  }
+//+------------------------------------------------------------------+
+//| Custom indicator iteration function                              |
+//+------------------------------------------------------------------+
+int OnCalculate(const int rates_total,
+                const int prev_calculated,
+                const datetime &time[],
+                const double &open[],
+                const double &high[],
+                const double &low[],
+                const double &close[],
+                const long &tick_volume[],
+                const long &volume[],
+                const int &spread[])
+  {
+   int start = prev_calculated > 0 ? prev_calculated - 1 : 0;
+   
+   for (int i = start; i < rates_total; i++)
+     {
+      double price1 = iClose(SpreadSymbol1, 0, i);
+      double price2 = iClose(SpreadSymbol2, 0, i);
+      if (price1 != 0 && price2 != 0)
+        {
+         SpreadBuffer[i] = price1 - price2;
+        }
+     }
+   return(rates_total);
+  }
+//+------------------------------------------------------------------+
