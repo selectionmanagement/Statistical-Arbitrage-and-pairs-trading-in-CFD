@@ -1,0 +1,140 @@
+//+------------------------------------------------------------------+
+//| Expert initialization function                                   |
+//+------------------------------------------------------------------+
+input string symbol1 = "XAUUSD"; // First symbol
+input string symbol2 = "EURUSD"; // Second symbol
+input double mainLotSize = 0.1;  // Main lot size
+
+int OnInit()
+  {
+   // Create "Open" button
+   if(!ObjectCreate(0, "OpenButton", OBJ_BUTTON, 0, 0, 0))
+     {
+      Print("Failed to create 'Open' button");
+      return(INIT_FAILED);
+     }
+   ObjectSetInteger(0, "OpenButton", OBJPROP_CORNER, CORNER_LEFT_UPPER);
+   ObjectSetInteger(0, "OpenButton", OBJPROP_XDISTANCE, 10);
+   ObjectSetInteger(0, "OpenButton", OBJPROP_YDISTANCE, 10);
+   ObjectSetInteger(0, "OpenButton", OBJPROP_WIDTH, 80);
+   ObjectSetString(0, "OpenButton", OBJPROP_TEXT, "Open");
+   ObjectSetInteger(0, "OpenButton", OBJPROP_FONTSIZE, 12); // Adjust font size to indirectly set height
+
+   // Create "Close" button
+   if(!ObjectCreate(0, "CloseButton", OBJ_BUTTON, 0, 0, 0))
+     {
+      Print("Failed to create 'Close' button");
+      return(INIT_FAILED);
+     }
+   ObjectSetInteger(0, "CloseButton", OBJPROP_CORNER, CORNER_LEFT_UPPER);
+   ObjectSetInteger(0, "CloseButton", OBJPROP_XDISTANCE, 100);
+   ObjectSetInteger(0, "CloseButton", OBJPROP_YDISTANCE, 10);
+   ObjectSetInteger(0, "CloseButton", OBJPROP_WIDTH, 80);
+   ObjectSetString(0, "CloseButton", OBJPROP_TEXT, "Close");
+   ObjectSetInteger(0, "CloseButton", OBJPROP_FONTSIZE, 12); // Adjust font size to indirectly set height
+
+   return(INIT_SUCCEEDED);
+  }
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+//| Expert deinitialization function                                 |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+  {
+   // Delete buttons on deinitialization
+   ObjectDelete(0, "OpenButton");
+   ObjectDelete(0, "CloseButton");
+  }
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+//| Expert tick function                                             |
+//+------------------------------------------------------------------+
+void OnTick()
+  {
+   // Check if "Open" button is clicked
+   if(ObjectGetInteger(0, "OpenButton", OBJPROP_STATE) == true)
+     {
+      OpenOrders();
+      ObjectSetInteger(0, "OpenButton", OBJPROP_STATE, false); // Reset button state
+     }
+
+   // Check if "Close" button is clicked
+   if(ObjectGetInteger(0, "CloseButton", OBJPROP_STATE) == true)
+     {
+      CloseOrders();
+      ObjectSetInteger(0, "CloseButton", OBJPROP_STATE, false); // Reset button state
+     }
+  }
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+//| Calculate lot size for the second symbol                         |
+//+------------------------------------------------------------------+
+double CalculateLotSize(string sym1, double lot1, string sym2)
+  {
+   double price1 = MarketInfo(sym1, MODE_ASK); // Assume we are buying sym1
+   double price2 = MarketInfo(sym2, MODE_BID); // Assume we are selling sym2
+
+   // Contract sizes
+   double contractSize1 = 100000; // XAUUSD: 100 ounces per lot
+   double contractSize2 = 100000; // EURUSD: 100,000 units per lot
+
+   // Value in USD of the position in sym1
+   double value1 = lot1 * contractSize1 * price1;
+
+   // Calculate equivalent lot size for sym2
+   double equivalentLotSize = value1 / (contractSize2 * price2);
+
+   return equivalentLotSize;
+  }
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+//| Open buy and sell orders for the pair trading strategy           |
+//+------------------------------------------------------------------+
+void OpenOrders()
+  {
+   double lot1 = mainLotSize; // Lot size for symbol1
+   double lot2 = CalculateLotSize(symbol1, lot1, symbol2); // Calculate lot size for symbol2
+
+   int ticket1 = OrderSend(symbol1, OP_BUY, lot1, Ask, 3, 0, 0, "Buy Order", 0, 0, clrGreen);
+   int ticket2 = OrderSend(symbol2, OP_SELL, lot2, Bid, 3, 0, 0, "Sell Order", 0, 0, clrRed);
+
+   if(ticket1 < 0 || ticket2 < 0)
+     {
+      Print("Error opening orders: ", GetLastError());
+     }
+   else
+     {
+      Print("Orders opened successfully: ", ticket1, " and ", ticket2);
+     }
+  }
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+//| Close all orders for the specified symbols                       |
+//+------------------------------------------------------------------+
+void CloseOrders()
+  {
+   for(int i = OrdersTotal() - 1; i >= 0; i--)
+     {
+      if(OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+        {
+         if(OrderSymbol() == symbol1 || OrderSymbol() == symbol2)
+           {
+            int ticket = OrderClose(OrderTicket(), OrderLots(), OrderClosePrice(), 3, clrYellow);
+            if(ticket < 0)
+              {
+               Print("Error closing order: ", GetLastError());
+              }
+            else
+              {
+               Print("Order closed successfully: ", OrderTicket());
+              }
+           }
+        }
+     }
+  }
+//+------------------------------------------------------------------+
